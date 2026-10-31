@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.91.378.0] - 2026-10-31
+
+**The CSO runtime image workflow passes again after Docker moved its `scout-sbom-indexer:1` tag.** All 10 `validate-native` jobs in Stage CSO Runtime Images were failing with `SOURCE_TAG_MOVED: docker.io/docker/scout-sbom-indexer:1` on every PR that touched CSO paths. Docker pushed release 1.29.0 to the floating `:1` tag on 2026-10-29. The reviewed index `sha256:4b67f29e…` is Docker's 1.24.0 release, and the `1.24.0` tag still points at it. So the SBOM generator source now names `:1.24.0`. The pinned digests and the build-inputs revision are byte-identical, no requalification trigger changes, and the 10 qualified runtimes stay current.
+
+### Changed
+- **`lib/cso/images/build-inputs.json`**: `sbomGenerator.source` is `docker.io/docker/scout-sbom-indexer:1.24.0` instead of `:1`.
+- **`scripts/cso-image-matrix.ts`**: every pinned family (SBOM generator, base images, uv) must name an exact release in its source tag: `<major>.<minor>.<patch>`, or `<major>.<minor>` for the PostgreSQL base, whose releases have two parts. A floating major or minor tag (`:1`, `:1.24`, `python:3.13-slim`), `latest` or another alias fails with `FLOATING_<FAMILY>_SOURCE` before any build. An exact tag can still be re-pushed upstream (Docker's official images rebuild them when their Debian base changes), and `SOURCE_TAG_MOVED` still reports that. Moving the generator to 1.29.0 is a separate change that needs a new build-inputs revision and a requalified catalog.
+
+### Tests
+- `test/cso-distribution.test.ts`: `:1`, `:1.24`, `:1.24-slim`, `:latest` and `:stable` are refused for the SBOM generator and for a base image; PostgreSQL accepts `17.2` but not `17`, Python refuses `3.13-slim-bookworm`; and the committed inputs build all 10 rows with the `1.24.0` source.
+
 ## [1.91.377.0] - 2026-10-31
 
 **A passed GitHub Actions run can now clear the remote test gate for the same tree, so a repository stops running its full suite twice per slot.** gbrain paid a 30–45 minute Ubicloud gate and then an 18–20 minute full-ci dispatch on the same tree in every serial slot (GBRA-108: #7872's slot took 5.6 h). `gstack-pregate clear --remote pregate.json/remote_gate --run <id> --run <id>` accepts one verified run per profile the base branch declares. gstack checks each run against the runner's own record, never against a pasted claim. It reads the GitHub API's run and jobs, the tree git computes for the run's head, and the `tree.json` the run uploaded. Nothing is skipped: the tests still run once, in CI. A repository that declares no profiles is unchanged.
